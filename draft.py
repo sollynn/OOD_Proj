@@ -1,3 +1,10 @@
+class Node:
+    def __init__(self,data,left =None , right =None):
+        self.data = data
+        self.left =None if left is None else left
+        self.right =None if right is None else right
+class AVL :
+    pass
 class Customer:
     def __init__(self,customer_num,channel, ID = None ,room_id = None):
         self.customer_num = customer_num
@@ -98,3 +105,4 @@ input pattern : addRoom 00
 input pattern : delete 001 ( Room wanna delete)
 input pattern : find 001 ( Room wanna search)
 """
+
