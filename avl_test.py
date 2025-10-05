@@ -143,6 +143,19 @@ class AVL :
         print("\n" + "="*50 + "\n")
         self.display_all_nodes()
 
+    def find_room(self, room_id):
+        return self._find_room(self.root, room_id)
+
+    def _find_room(self, node, room_id):
+        if node is None:
+            return None
+        if room_id == node.roomID:
+            return node
+        elif room_id < node.roomID:
+            return self._find_room(node.left, room_id)
+        else:
+            return self._find_room(node.right, room_id)
+
 hotel = AVL()
 
 while True:
@@ -179,7 +192,15 @@ while True:
         pass
 
     elif cmd == "find": 
-        pass
+        if not args.strip().isdigit():
+            print("error: room ID must be a number")
+        else:
+            room_id = int(args.strip())
+            result = hotel.find_room(room_id)
+            if result:
+                print(f"Room found → Channel: {result.channel}, Customer Num: {result.customer_num}, Room ID: {result.roomID}")
+            else:
+                print("Room not found.")
 
     elif cmd == "show":
         pass
