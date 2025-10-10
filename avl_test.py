@@ -129,7 +129,7 @@ class AVL :
         """Display information of all nodes in inorder traversal"""
         print("All nodes in the tree:")
         self._display_all_nodes(self.root)
-
+        print("")
     def _display_all_nodes(self, node):
         if node is not None:
             self._display_all_nodes(node.left)
@@ -144,7 +144,9 @@ class AVL :
         self.display_all_nodes()
 
     def find_room(self, room_id):
+        # Find a room by its ID in the AVL tree
         return self._find_room(self.root, room_id)
+    
 
     def _find_room(self, node, room_id):
         if node is None:
@@ -155,6 +157,68 @@ class AVL :
             return self._find_room(node.left, room_id)
         else:
             return self._find_room(node.right, room_id)
+
+    def _min_value_node(self, node):
+        current = node
+        while current.left is not None:
+            current = current.left
+        return current
+
+    def delete(self, room_id):
+        self.root = self._delete(self.root, room_id)
+
+    def _delete(self, node, room_id):
+        if node is None:
+            return node
+
+        if room_id < node.roomID:
+            node.left = self._delete(node.left, room_id)
+        elif room_id > node.roomID:
+            node.right = self._delete(node.right, room_id)
+        else:
+            # Node with only one child or no child
+            if node.left is None:
+                return node.right
+            elif node.right is None:
+                return node.left
+
+            # Node with two children: Get the inorder successor
+            temp = self._min_value_node(node.right)
+            node.roomID = temp.roomID
+            node.customer_num = temp.customer_num
+            node.channel = temp.channel
+            # Delete the inorder successor
+            node.right = self._delete(node.right, temp.roomID)
+
+        if node is None:
+            return node
+
+        # Update height
+        node.height = 1 + max(self._get_height(node.left), self._get_height(node.right))
+
+        # Get the balance factor
+        balance = self._get_balance(node)
+
+        # Balance the tree
+        # Left Left Case
+        if balance > 1 and self._get_balance(node.left) >= 0:
+            return self._right_rotate(node)
+
+        # Left Right Case
+        if balance > 1 and self._get_balance(node.left) < 0:
+            node.left = self._left_rotate(node.left)
+            return self._right_rotate(node)
+
+        # Right Right Case
+        if balance < -1 and self._get_balance(node.right) <= 0:
+            return self._left_rotate(node)
+
+        # Right Left Case
+        if balance < -1 and self._get_balance(node.right) > 0:
+            node.right = self._right_rotate(node.right)
+            return self._left_rotate(node)
+
+        return node
 
 hotel = AVL()
 
@@ -173,8 +237,12 @@ while True:
         parsed = [(it[0], it[1:]) for it in items if it]
         for ch, num in parsed:
             new_node = Node(num, ch)
-            hotel.insert(new_node)
-            print(f"Added customer: Channel {ch}, Num {num}, RoomID {new_node.roomID}")
+            # Check if room already exists before inserting
+            if hotel.find_room(new_node.roomID) is not None:
+                print(f"Error: Room with ID {new_node.roomID} already exists. Skipping insertion.")
+            else:
+                hotel.insert(new_node)
+                print(f"Added customer: Channel {ch}, Num {num}, RoomID {new_node.roomID}")
 
         pass
     
@@ -183,13 +251,24 @@ while True:
             print("error: room ID must be a number")
         else:
             room_id = int(args.strip())
-            new_node = Node(None, None, ID=room_id)
-            hotel.insert(new_node)
-            print(f"Room {room_id} added successfully")
+            # Check if room already exists before inserting
+            if hotel.find_room(room_id) is not None:
+                print(f"Error: Room with ID {room_id} already exists. Skipping insertion.")
+            else:
+                new_node = Node(None, None, ID=room_id)
+                hotel.insert(new_node)
+                print(f"Room {room_id} added successfully")
 
-    elif cmd == "delete":  
-
-        pass
+    elif cmd == "delete":
+        if not args.strip().isdigit():
+            print("error: room ID must be a number")
+        else:
+            room_id = int(args.strip())
+            if hotel.find_room(room_id) is None:
+                print(f"Error: Room with ID {room_id} does not exist.")
+            else:
+                hotel.delete(room_id)
+                print(f"Room {room_id} deleted successfully")
 
     elif cmd == "find": 
         if not args.strip().isdigit():
@@ -210,7 +289,7 @@ while True:
 
     else:
         print("error command arai wa:", cmd)
-    hotel.show_tree_and_nodes()
+    
 """
 input pattern : add A1,A2,B1,B2 (channel=char,customer_num=int, seperate by ,)
 input pattern : addRoom 00
