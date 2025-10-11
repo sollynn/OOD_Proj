@@ -253,17 +253,72 @@ while True:
     cmd = parts[0].lower()
     args = parts[1] if len(parts) > 1 else ""
 
-    if cmd == "add":  # pattern: add A1,A2,B1,B2
-        items = [x.strip() for x in args.split(",")] if args else []
-        parsed = [(it[0], it[1:]) for it in items if it]
-        for ch, num in parsed:
-            new_node = Node(num, ch)
-            # Check if room already exists before inserting
-            if hotel.find_room(new_node.roomID) is not None:
-                print(f"Error: Room with ID {new_node.roomID} already exists. Skipping insertion.")
-            else:
-                hotel.insert(new_node)
-                print(f"Added customer: Channel {ch}, Num {num}, RoomID {new_node.roomID}")
+    if cmd == "add":
+            # รูปแบบ: add 50/ A10 M15 RU15 LOP14 KP6
+            # 50 = guest_amount, ตัวอักษร = ชื่อช่องทาง (เก็บเป็น set), ตัวเลข = จำนวนแขกของช่องทางนั้น
+
+            if "/" not in args:
+                print("error: expected 'guest_amount/ channels', e.g. 50/ A10 M15")
+                continue
+
+            left, right = args.split("/", 1)
+            left, right = left.strip(), right.strip()
+            
+            if not left.isdigit():
+                print("error: guest_amount must be an integer")
+                continue
+
+            guest_amount = int(left)
+
+            # แปลงรายการช่องทาง: รองรับเว้นวรรคหรือคอมมา
+            raw_tokens = [t.strip() for t in right.replace(",", " ").split() if t.strip()]
+            if not raw_tokens:
+                print("error: no input channels provided")
+                continue
+
+            # โครงสร้างเก็บข้อมูล
+            if not hasattr(hotel, "channel_count"):
+                hotel.channel_count = {}
+            if not hasattr(hotel, "channels"):
+                hotel.channels = set()
+
+            # นับจำนวนแขกต่อช่องทาง + เก็บชื่อช่องทางใน set
+            temp_counts = {}
+            for tok in raw_tokens:
+                ch = ''.join(filter(str.isalpha, tok)).upper()
+                num = ''.join(filter(str.isdigit, tok))
+                if not ch or not num:
+                    print(f"error: invalid token '{tok}', expected like A10 or RU15")
+                    continue
+                hotel.channels.add(ch)
+                temp_counts[ch] = temp_counts.get(ch, 0) + int(num)
+
+            # อัปเดต dict หลัก
+            hotel.channel_count = temp_counts
+
+            # เพิ่มตัวแปรจำนวนช่องทาง
+            channel_amount = len(hotel.channels)
+
+            # รีบิลด์ AVL ใหม่ โดยจำกัดจำนวนตาม guest_amount
+            hotel.root = None
+            print("\nRebuilding hotel room assignments...")
+
+            inserted = 0
+            for ch, total in hotel.channel_count.items():
+                for i in range(1, total + 1):
+                    if inserted >= guest_amount:
+                        break
+                    new_node = Node(str(i), ch)
+                    hotel.insert(new_node)
+                    inserted += 1
+                if inserted >= guest_amount:
+                    break
+
+            print(f"\nGuests requested: {guest_amount}, assigned: {inserted}")
+            print("Channels:", sorted(hotel.channels))
+            print(f"Total channels: {channel_amount}")   
+            print("\nUpdated all room assignments successfully.\n")
+
 
     elif cmd == "addroom":
         if not args.strip().isdigit():
