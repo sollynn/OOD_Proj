@@ -2,43 +2,33 @@ import time
 
 class Guest:
     def __init__(self, channel: str, customer_num: int):
-        self.channel = channel.upper()
-        self.customer_num = int(customer_num)
+        self.channel = channel.upper() #customer channel
+        self.customer_num = int(customer_num) #customer amount for each channel
 
-    @property
-    def guest_id(self) -> int:
-        # รหัสช่องทางแบบฐาน 26 (A=1..Z=26) ต่อด้วยเลขลูกค้า 3 หลัก
-        if not self.channel.isalpha():
-            raise ValueError("Channel must be A-Z only")
-        if self.customer_num < 1:
-            raise ValueError("customer_num >= 1")
-        code = 0
-        for c in self.channel:
-            code = code * 26 + (ord(c) - 64)
-        return int(f"{code:03d}{self.customer_num:03d}")
+    
 
 
 class Room:
     def __init__(self, room_id: int, guest: Guest | None):
         self.room_id = int(room_id)
-        self.guest = guest  # ห้องว่างได้ (None)
+        self.guest = guest  
 
 
 # ---------- AVL (key = room_id) ----------
 class Node:
     def __init__(self, key: int, val: Room):
-        self.key = key
-        self.val = val
+        self.key = key # Room_ID
+        self.val = val # Room
         self.left = None
         self.right = None
         self.h = 1
 
 
-def _h(n): return n.h if n else 0
-def _bal(n): return _h(n.left) - _h(n.right) if n else 0
+def _h(n): return n.h if n else 0 # check height
+def _bal(n): return _h(n.left) - _h(n.right) if n else 0 # Check Balance Tree
 
 
-class AVLRooms:
+class AVL:
     def __init__(self):
         self.root = None
 
@@ -55,7 +45,7 @@ class AVLRooms:
         else:
             n.val = v
             return n
-        n.h = 1 + max(_h(n.left), _h(n.right))
+        n.h = 1 + max(_h(n.left), _h(n.right)) #Update height
         return self._rebalance(n, k)
 
     def find(self, room_id: int):
@@ -146,7 +136,7 @@ class AVLRooms:
 
 
 # ---------- Channel registry ----------
-class ChannelRegistry:
+class manageCustomer:
     def __init__(self):
         self.counts: dict[str, int] = {}
 
@@ -170,7 +160,7 @@ class ChannelRegistry:
 # ---------- Interleaver (A1,B1,...,A2,B2,...) ----------
 class HilbertInterleaver:
     @staticmethod
-    def assign(reg: ChannelRegistry, need: int, start_room: int = 1):
+    def assign(reg: manageCustomer, need: int, start_room: int = 1):
         chs = reg.sorted_channels()
         if not chs:
             return
@@ -189,12 +179,12 @@ class HilbertInterleaver:
 
 
 # ---------- Repository (File I/O) ----------
-class HotelRepository:
+class manageFile:
     def __init__(self, filename="hotel_data.txt"):
         self.filename = filename
 
     def load(self):
-        reg, rooms = ChannelRegistry(), []
+        reg, rooms = manageCustomer(), []
         try:
             with open(self.filename, "r", encoding="utf-8") as f:
                 first = f.readline().strip()
@@ -220,7 +210,7 @@ class HotelRepository:
             pass
         return reg, rooms
 
-    def save(self, reg: ChannelRegistry, rooms: list[Room]):
+    def save(self, reg: manageCustomer, rooms: list[Room]):
         with open(self.filename, "w", encoding="utf-8") as f:
             chs = ",".join(f"{ch}={reg.counts[ch]}" for ch in reg.sorted_channels())
             f.write(f"Channels: {chs}\n")
@@ -233,11 +223,11 @@ class HotelRepository:
 
 
 # ---------- Application Facade ----------
-class HotelService:
+class recievedCommand:
     def __init__(self, repo=None):
-        self.repo = repo or HotelRepository()
+        self.repo = repo or manageFile()
         self.registry, existing_rooms = self.repo.load()
-        self.rooms = AVLRooms()
+        self.rooms = AVL()
         for r in existing_rooms:
             self.rooms.insert(r)
 
@@ -267,7 +257,7 @@ class HotelService:
         print(f"After : {self.registry}")
 
         # rebuild rooms by interleave
-        self.rooms = AVLRooms()
+        self.rooms = AVL()
         assigned = list(HilbertInterleaver.assign(self.registry, need=self.registry.total()))
         for r in assigned:
             self.rooms.insert(r)
@@ -296,7 +286,7 @@ class HotelService:
         r = self.rooms.find(room_id)
         if r and r.guest:
             g = r.guest
-            print(f"Room {room_id} → Channel {g.channel}, Customer {g.customer_num}, GuestID {g.guest_id}")
+            print(f"Room {room_id} → Channel {g.channel}, Customer {g.customer_num}")
         elif r:
             print(f"Room {room_id} is empty.")
         else:
@@ -319,7 +309,7 @@ class HotelService:
 
 
 # ---------- mini CLI (รันทันที) ----------
-svc = HotelService()
+svc = recievedCommand()
 print("\n--- Hotel Command ---")
 print("add N/ A10 B5 ... | addroom ID | delete ID | find ID | show | show_file | exit\n")
 
