@@ -1,6 +1,15 @@
-# Use Node to store both customer and room information
-# Only Add function is implemented
-# # Line 117 - 143 for debugging and visualization
+import time, sys    
+
+# def process_time(func):
+#     def wrapper(*args, **kwargs):
+#         start = time.time()
+#         result = func(*args, **kwargs)
+#         elapsed = time.time() - start
+#         print(f"Run time : {elapsed:.8f} seconds\n")
+#         return result
+#     return wrapper
+
+
 class Node:
     def __init__(self,customer_num,channel, ID = None, left =None , right =None):
         self.customer_num = customer_num
@@ -113,8 +122,6 @@ class AVL :
 
         return y
 
-
-
     def print_tree(self):
         """Print the tree structure"""
         self._print_tree(self.root, 0)
@@ -127,13 +134,13 @@ class AVL :
 
     def display_all_nodes(self):
         """Display information of all nodes in inorder traversal"""
-        print("All nodes in the tree:")
+        print("All rooms in the hotel:")
         self._display_all_nodes(self.root)
-        print("")
+
     def _display_all_nodes(self, node):
         if node is not None:
             self._display_all_nodes(node.left)
-            print(f"Customer Num: {node.customer_num}, Channel: {node.channel}, RoomID: {node.roomID}, Height: {node.height}")
+            print(f"Customer Num: {node.customer_num}, Channel: {node.channel}, RoomID: {node.roomID}")
             self._display_all_nodes(node.right)
 
     def show_tree_and_nodes(self):
@@ -146,7 +153,6 @@ class AVL :
     def find_room(self, room_id):
         # Find a room by its ID in the AVL tree
         return self._find_room(self.root, room_id)
-    
 
     def _find_room(self, node, room_id):
         if node is None:
@@ -222,17 +228,32 @@ class AVL :
 
 hotel = AVL()
 
+print("\n--- Hotel Command ---\n" \
+    "\nadd : Manual add customer" \
+    "\naddroom : Manual add room" \
+    "\ndelete : Manual delete room" \
+    "\nfind : Search room by number" \
+    "\nshow : show customer data" \
+    "\nshow_file : show customer data in file\n" \
+    "\n---------------------\n")
+
 while True:
     command = input("enter command : ").strip()
+    
     if not command:
         continue
+
+    if command.lower() in ("exit", "quit"):
+        print("Exiting program...")
+        break
+
+    start_time = time.time()    # start counting time
 
     parts = command.split(maxsplit=1)
     cmd = parts[0].lower()
     args = parts[1] if len(parts) > 1 else ""
 
     if cmd == "add":  # pattern: add A1,A2,B1,B2
-
         items = [x.strip() for x in args.split(",")] if args else []
         parsed = [(it[0], it[1:]) for it in items if it]
         for ch, num in parsed:
@@ -244,8 +265,6 @@ while True:
                 hotel.insert(new_node)
                 print(f"Added customer: Channel {ch}, Num {num}, RoomID {new_node.roomID}")
 
-        pass
-    
     elif cmd == "addroom":
         if not args.strip().isdigit():
             print("error: room ID must be a number")
@@ -282,13 +301,38 @@ while True:
                 print("Room not found.")
 
     elif cmd == "show":
-        pass
+        start_time = time.time()
+        if hotel.root is None:
+            print("No data in the hotel.")
+        else:
+            hotel.display_all_nodes()
 
-    elif cmd == "showcustomerdata":
-        pass
+    elif cmd == "show_file":
+        if hotel.root is None:
+            print("No customer data in the hotel.")
+        else:
+            filename = "hotel_data.txt"
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("Channel\tCustomerNum\tRoomID\n")
+
+                def inorder_write(node):
+                    if node:
+                        inorder_write(node.left)
+                        if node.channel and node.customer_num:
+                            f.write(f"{node.channel}\t{node.customer_num}\t{node.roomID}\n")
+                            print(f"Channel {node.channel:<3} | Customer {node.customer_num:<3} → Room {node.roomID}")
+                        inorder_write(node.right)
+
+                inorder_write(hotel.root)
+
+            print(f"\nOutput saved to '{filename}' successfully.")
 
     else:
         print("error command arai wa:", cmd)
+
+     # counting time
+    elapsed = time.time() - start_time
+    print(f"\nRun time : {elapsed:.8f} seconds\n")    
     
 """
 input pattern : add A1,A2,B1,B2 (channel=char,customer_num=int, seperate by ,)
