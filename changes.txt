@@ -1,0 +1,45 @@
+Classes:
+   - Node -> AVLNode
+   - AVL -> AVLTree
+   - manageCustomer -> CustomerRegistry
+   - manageFile -> ManageFile   (m --> M)
+   - recievedCommand -> HotelCommandHandler
+
+Functions in AVLTree class:
+   - _h -> get_height
+   - _bal -> get_balance_factor
+   - _rotL -> rotate_left
+   - _rotR -> rotate_right
+   - _rebalance -> rebalance_after_insert
+   - _rebalance_full -> rebalance_after_delete
+   - _min -> find_minimum
+   - _delete -> delete_node
+   - _insert -> insert_node
+   - inorder -> inorder_traversal
+
+Renamed methods in CustomerRegistry class:
+   - add_batch -> add_customers
+   - total -> get_total_customers
+   - sorted_channels -> get_sorted_channels
+
+Renamed method in HilbertInterleaver class:
+   - assign -> assign_rooms
+
+Renamed methods in ManageFile class:
+   - load -> load_data
+   - save -> save_data
+
+Renamed methods in HotelCommandHandler class:
+   - parse_add -> parse_add_command
+   - cmd_add -> add_customers
+   - cmd_addroom -> add_room
+   - cmd_delete -> delete_room
+   - cmd_find -> find_room
+   - cmd_show -> show_rooms
+   - cmd_show_file -> save_to_file
+
+Code organization:
+   - Added section comments for better structure
+   - Grouped classes in this order: Data Models, AVL Tree, Customer Registry, Assigner, Files, Main Methods, CLI
+   - Changed variable names for readability, n -> node, k -> key, v -> value, reg -> registry
+

@@ -252,15 +252,21 @@ class recievedCommand:
 
     def cmd_add(self, arg: str):
         need, newmap = self.parse_add(arg)
+        total_x = sum(newmap.values())
+        if need != total_x:
+            print(f"Error: N ({need}) does not match the sum of X values ({total_x})")
+            return
         print(f"Before: {self.registry}")
         self.registry.add_batch(newmap)
         print(f"After : {self.registry}")
 
         # rebuild rooms by interleave
+        existing_count = len(list(self.rooms.inorder()))
         self.rooms = AVL()
         assigned = list(HilbertInterleaver.assign(self.registry, need=self.registry.total()))
         for r in assigned:
             self.rooms.insert(r)
+        rooms_after = len(list(self.rooms.inorder()))
 
         self.repo.save(self.registry, list(self.rooms.inorder()))
         print(f"Assigned {len(assigned)} / requested {need} (total guests={self.registry.total()})")
