@@ -1,4 +1,5 @@
 import time
+import sys # for memory calculation
 
 # ---------- Data Models ----------
 class Guest:
@@ -273,7 +274,7 @@ class HotelCommandHandler:
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Assigned {len(assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
-        print("Pattern: A1,B1,D1,A2,B2,D2,...")
+        
 
     def add_room(self, room_id: int):
         if self.rooms.find(room_id):
@@ -316,11 +317,53 @@ class HotelCommandHandler:
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Saved to {self.repo.filename}")
 
+    def reset(self):
+        self.registry = CustomerRegistry()  
+        self.rooms = AVLTree()  
+        self.repo.save_data(self.registry, [])
+        print("All data wiped.")
+
+    @staticmethod
+    def get_deep_size(obj, seen=None):
+        if seen is None:
+            seen = set()
+        obj_id = id(obj)
+        if obj_id in seen:
+            return 0  # กัน Infinite recursion
+        seen.add(obj_id)
+        size = sys.getsizeof(obj)
+        if hasattr(obj, '__dict__'):
+            # สำหรับ Object ที่มี __dict__
+            size += sum(HotelCommandHandler.get_deep_size(v, seen) for v in obj.__dict__.values())
+        elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes)):
+            # สำหรับ Object ที่เป็น iterable (เช่น list, dict, set)
+            try:
+                size += sum(HotelCommandHandler.get_deep_size(item, seen) for item in obj)
+            except TypeError:
+                pass  # ข้ามถ้าไม่สามารถ iterate ได้
+        return size
+
+    def display_memory_usage(self):
+        # Memory for CustomerRegistry (dict of counts)
+        registry_size = self.get_deep_size(self.registry)
+    
+        # Memory for AVLTree (traverse nodes)
+        tree_size = 0
+        for room in self.rooms.inorder_traversal():
+            tree_size += self.get_deep_size(room)
+    
+        total_size = registry_size + tree_size
+    
+        print(f"Memory Usage:")
+        print(f"  CustomerRegistry (Dict): {registry_size} bytes")
+        print(f"  AVLTree (Rooms): {tree_size} bytes")
+        print(f"  Total Data: {total_size} bytes")
+
 
 # ---------- Mini CLI (รันทันที) ----------
 service = HotelCommandHandler()
 print("\n--- Hotel Command ---")
-print("add N/ A10 B5 ... | addroom ID | delete ID | find ID | show | show_file | exit\n")
+print("add N/ A10 B5 ... | addroom ID | delete ID | find ID | show | show_file | memory | reset | exit\n")
 
 while True:
     try:
@@ -347,6 +390,10 @@ while True:
             service.show_rooms()
         elif cmd == "show_file":
             service.save_to_file()
+        elif cmd == "memory":
+            service.display_memory_usage()
+        elif cmd == "reset":
+            service.reset()
         else:
             print("unknown command:", cmd)
 
