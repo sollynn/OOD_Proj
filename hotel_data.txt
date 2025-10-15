@@ -1,17 +1,2 @@
-Channels: A=15
+Channels: 
 Channel	CustomerNum	RoomID	Status
-A	1	1	OLD
-A	2	2	OLD
-A	3	3	OLD
-A	4	4	OLD
-A	5	5	OLD
-A	1	6	OLD
-A	2	7	OLD
-A	3	8	OLD
-A	4	9	OLD
-A	5	10	OLD
-A	1	11	NEW
-A	2	12	NEW
-A	3	13	NEW
-A	4	14	NEW
-A	5	15	NEW

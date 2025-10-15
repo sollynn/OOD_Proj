@@ -145,6 +145,7 @@ class CustomerRegistry:
         self.counts: dict[str, int] = {}
 
     def add_customers(self, mapping: dict[str, int]):
+        
         for channel, count in mapping.items():
             if count < 0:
                 raise ValueError("count must be >= 0")
@@ -277,10 +278,35 @@ class HotelCommandHandler:
         new_assigned = list(HilbertInterleaver.assign_rooms(temp_registry, need=total_new, start_room=max_room + 1))
         for room in new_assigned:
             room.status = 'NEW'
-            self.rooms.insert(room)
+            if not self.rooms.find(room.room_id):
+                self.rooms.insert(room)
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Assigned {len(new_assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
+        
+    def add_manual_room(self, room_id):
+        try:
+            num = self.registry.counts["MANUAL"]+1
+        except:
+            num = 1
+        new_room = Room(room_id, Guest("Manual", num), 'NEW')
+        if self.rooms.find(new_room.room_id):
+            print(f"Room {new_room.room_id} already exists.")
+            return False
+        for r in self.rooms.inorder_traversal():
+            r.status = 'OLD'
+        self.rooms.insert(new_room)
+        print(f"Before: {self.registry}")
+        try:
+            val = self.registry.counts["MANUAL"]
+            self.registry.add_customers({"MANUAL":1})
+        except:
+            self.registry.add_customers({"MANUAL":1})
+        
+        self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
+        print(f"After : {self.registry}")
+        print(f"Room {new_room.room_id} added manually.")
+        return True
         
 
     def delete_room(self, room_id: int):
@@ -360,6 +386,7 @@ class HotelCommandHandler:
 
 
 # ---------- Mini CLI (รันทันที) ----------
+
 service = HotelCommandHandler()
 print("\n--- Hotel Command ---")
 print("add N/ A10 B5 ... | delete ID | find ID | show | show_file | memory | reset | exit\n")
@@ -391,6 +418,8 @@ while True:
             service.display_memory_usage()
         elif cmd == "reset":
             service.reset()
+        elif cmd == "add_manual":
+            service.add_manual_room(int(arg))
         else:
             print("unknown command:", cmd)
 
