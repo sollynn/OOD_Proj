@@ -6,13 +6,13 @@ class Guest:
     def __init__(self, channel: str, customer_num: int):
         self.channel = channel.upper()  # customer channel
         self.customer_num = int(customer_num)  # customer amount for each channel
-
+        
 
 class Room:
-    def __init__(self, room_id: int, guest: Guest | None):
+    def __init__(self, room_id: int, guest: Guest | None, status = 'NEW'):
         self.room_id = int(room_id)
         self.guest = guest
-
+        self.status = status
 
 # ---------- AVL Tree Implementation (key = room_id) ----------
 class AVLNode:
@@ -207,9 +207,12 @@ class ManageFile:
                     line = line.strip()
                     if not line:
                         continue
-                    channel, customer_num, room_id = line.split("\t")
-                    guest = Guest(channel, int(customer_num))
-                    rooms.append(Room(int(room_id), guest))
+                    channel, customer_num, room_id, status = line.split("\t")
+                    if channel == "-":
+                        rooms.append(Room(int(room_id), None, status))
+                    else:
+                        guest = Guest(channel, int(customer_num))
+                        rooms.append(Room(int(room_id), guest, status))
         except FileNotFoundError:
             pass
         return registry, rooms
@@ -218,12 +221,12 @@ class ManageFile:
         with open(self.filename, "w", encoding="utf-8") as f:
             channels = ",".join(f"{ch}={registry.counts[ch]}" for ch in registry.get_sorted_channels())
             f.write(f"Channels: {channels}\n")
-            f.write("Channel\tCustomerNum\tRoomID\n")
+            f.write("Channel\tCustomerNum\tRoomID\tStatus\n")
             for room in sorted(rooms, key=lambda x: x.room_id):
                 if room.guest:
-                    f.write(f"{room.guest.channel}\t{room.guest.customer_num}\t{room.room_id}\n")
+                    f.write(f"{room.guest.channel}\t{room.guest.customer_num}\t{room.room_id}\t{room.status}\n")
                 else:
-                    f.write(f"-\t-\t{room.room_id}\n")
+                    f.write(f"-\t-\t{room.room_id}\t{room.status}\n")
 
 
 # ---------- Main Method ----------
@@ -261,28 +264,24 @@ class HotelCommandHandler:
             print(f"Error: N ({need}) does not match the sum of X values ({total_new})")
             return
         print(f"Before: {self.registry}")
+        for room in self.rooms.inorder_traversal():
+            room.status = 'OLD'
+
         self.registry.add_customers(new_mapping)
         print(f"After : {self.registry}")
 
-        # rebuild rooms by interleave
-        existing_count = len(list(self.rooms.inorder_traversal()))
-        self.rooms = AVLTree()
-        assigned = list(HilbertInterleaver.assign_rooms(self.registry, need=self.registry.get_total_customers()))
-        for room in assigned:
+        # Assign new rooms for new customers
+        max_room = max((room.room_id for room in self.rooms.inorder_traversal()), default=0)
+        temp_registry = CustomerRegistry()
+        temp_registry.add_customers(new_mapping)
+        new_assigned = list(HilbertInterleaver.assign_rooms(temp_registry, need=total_new, start_room=max_room + 1))
+        for room in new_assigned:
+            room.status = 'NEW'
             self.rooms.insert(room)
-        rooms_after = len(list(self.rooms.inorder_traversal()))
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
-        print(f"Assigned {len(assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
+        print(f"Assigned {len(new_assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
         
-
-    def add_room(self, room_id: int):
-        if self.rooms.find(room_id):
-            print(f"Room {room_id} exists.")
-            return
-        self.rooms.insert(Room(room_id, None))
-        self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
-        print(f"Room {room_id} added.")
 
     def delete_room(self, room_id: int):
         if not self.rooms.find(room_id):
@@ -363,7 +362,7 @@ class HotelCommandHandler:
 # ---------- Mini CLI (รันทันที) ----------
 service = HotelCommandHandler()
 print("\n--- Hotel Command ---")
-print("add N/ A10 B5 ... | addroom ID | delete ID | find ID | show | show_file | memory | reset | exit\n")
+print("add N/ A10 B5 ... | delete ID | find ID | show | show_file | memory | reset | exit\n")
 
 while True:
     try:
@@ -380,8 +379,6 @@ while True:
 
         if cmd == "add":
             service.add_customers(arg)
-        elif cmd == "addroom":
-            service.add_room(int(arg))
         elif cmd == "delete":
             service.delete_room(int(arg))
         elif cmd == "find":
