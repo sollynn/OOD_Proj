@@ -168,15 +168,15 @@ class HilbertInterleaver:
         channels = registry.get_sorted_channels()
         if not channels:
             return
-        max_per_channel = max(registry.counts.values())
-        room = start_room
+        total_channels = len(channels)
         assigned = 0
-        for i in range(max_per_channel):  # ลำดับลูกค้าในแต่ละช่องทาง
-            for channel in channels:      # วนตามลำดับช่องทาง
+
+        for i in range(max(registry.counts.values())):
+            for idx, channel in enumerate(channels):
                 if i < registry.counts[channel]:
+                    room_id = start_room + (total_channels * i) + idx
                     guest = Guest(channel, i + 1)
-                    yield Room(room, guest)
-                    room += 1
+                    yield Room(room_id, guest)
                     assigned += 1
                     if assigned >= need:
                         return
