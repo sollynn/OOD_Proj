@@ -163,24 +163,22 @@ class CustomerRegistry:
 
 
 # ---------- Room Assigner ----------
-class HilbertInterleaver:
+class GodelAssigner:
     @staticmethod
     def assign_rooms(registry: CustomerRegistry, need: int, start_room: int = 1):
         channels = registry.get_sorted_channels()
         if not channels:
             return
-        total_channels = len(channels)
         assigned = 0
 
-        for i in range(max(registry.counts.values())):
-            for idx, channel in enumerate(channels):
-                if i < registry.counts[channel]:
-                    room_id = start_room + (total_channels * i) + idx
-                    guest = Guest(channel, i + 1)
-                    yield Room(room_id, guest)
-                    assigned += 1
-                    if assigned >= need:
-                        return
+        for channel in channels:
+            for customer_num in range(1, registry.counts[channel] + 1):
+                room_id = (2 ** int(channel)) * (3 ** customer_num)
+                guest = Guest(channel, customer_num)
+                yield Room(room_id, guest)
+                assigned += 1
+                if assigned >= need:
+                    return
 
 
 # ---------- File I/O ----------
@@ -220,12 +218,11 @@ class ManageFile:
 
     def save_data(self, registry: CustomerRegistry, rooms: list[Room]):
         with open(self.filename, "w", encoding="utf-8") as f:
-            channels = ",".join(f"{ch}={registry.counts[ch]}" for ch in registry.get_sorted_channels())
-            f.write(f"Channels: {channels}\n")
-            f.write("Channel\tCustomerNum\tRoomID\tStatus\n")
+            channels_str = ", ".join(f"{ch}={cnt}" for ch, cnt in sorted(registry.counts.items()))
+            f.write("Status\tChannel\tCustomerNum\tRoomID\n")
             for room in sorted(rooms, key=lambda x: x.room_id):
                 if room.guest:
-                    f.write(f"{room.guest.channel}\t{room.guest.customer_num}\t{room.room_id}\t{room.status}\n")
+                    f.write(f"{room.status}\t{room.guest.channel}\t{room.guest.customer_num}\t{room.room_id}\n")
                 else:
                     f.write(f"-\t-\t{room.room_id}\t{room.status}\n")
 
@@ -239,23 +236,24 @@ class HotelCommandHandler:
         for room in existing_rooms:
             self.rooms.insert(room)
 
-    @staticmethod
-    def parse_add_command(command: str):
-        # รูปแบบ: "50/ A10 B15 D5"
-        if "/" not in command:
-            raise ValueError("expected 'N/ A10 B15'")
-        left, right = command.split("/", 1)
-        left = left.strip()
-        if not left.isdigit():
-            raise ValueError("N must be int")
-        need = int(left)
+    def parse_add_command(self, command: str):
+        # รูปแบบ: "10 20 30" (counts for channels starting from next available)
+        parts = command.split()
+        if not parts:
+            raise ValueError("expected space-separated numbers")
+        # Find the next channel number
+        existing_channels = [int(ch) for ch in self.registry.counts.keys() if ch.isdigit()]
+        max_channel = max(existing_channels) if existing_channels else 0
+        start = max_channel + 1
         mapping = {}
-        for token in right.replace(",", " ").split():
-            channel = "".join(filter(str.isalpha, token)).upper()
-            num = "".join(filter(str.isdigit, token))
-            if not channel or not num:
-                raise ValueError(f"bad token '{token}'")
-            mapping[channel] = mapping.get(channel, 0) + int(num)
+        for i, num_str in enumerate(parts, start=start):
+            if not num_str.isdigit():
+                raise ValueError(f"bad number '{num_str}'")
+            count = int(num_str)
+            if count < 0:
+                raise ValueError("count must be >=0")
+            mapping[str(i)] = count
+        need = sum(mapping.values())
         return need, mapping
 
     def add_customers(self, arg: str):
@@ -272,10 +270,9 @@ class HotelCommandHandler:
         print(f"After : {self.registry}")
 
         # Assign new rooms for new customers
-        max_room = max((room.room_id for room in self.rooms.inorder_traversal()), default=0)
         temp_registry = CustomerRegistry()
         temp_registry.add_customers(new_mapping)
-        new_assigned = list(HilbertInterleaver.assign_rooms(temp_registry, need=total_new, start_room=max_room + 1))
+        new_assigned = list(GodelAssigner.assign_rooms(temp_registry, need=total_new))
         for room in new_assigned:
             room.status = 'NEW'
             if not self.rooms.find(room.room_id):
@@ -284,12 +281,12 @@ class HotelCommandHandler:
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Assigned {len(new_assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
         
-    def add_manual_room(self, room_id):
+    def add_M_room(self, room_id):
         try:
-            num = self.registry.counts["MANUAL"]+1
+            num = self.registry.counts["M"]+1
         except:
             num = 1
-        new_room = Room(room_id, Guest("Manual", num), 'NEW')
+        new_room = Room(room_id, Guest("M", num), 'NEW')
         if self.rooms.find(new_room.room_id):
             print(f"Room {new_room.room_id} already exists.")
             return False
@@ -298,14 +295,14 @@ class HotelCommandHandler:
         self.rooms.insert(new_room)
         print(f"Before: {self.registry}")
         try:
-            val = self.registry.counts["MANUAL"]
-            self.registry.add_customers({"MANUAL":1})
+            val = self.registry.counts["M"]
+            self.registry.add_customers({"M":1})
         except:
-            self.registry.add_customers({"MANUAL":1})
+            self.registry.add_customers({"M":1})
         
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"After : {self.registry}")
-        print(f"Room {new_room.room_id} added manually.")
+        print(f"Room {new_room.room_id} added Mly.")
         return True
         
 
@@ -389,7 +386,7 @@ class HotelCommandHandler:
 
 service = HotelCommandHandler()
 print("\n--- Hotel Command ---")
-print("add N/ A10 B5 ... | delete ID | find ID | show | show_file | memory | reset | exit\n")
+print("add 10 20 30 ... | delete ID | find ID | show | show_file | memory | reset | exit\n")
 
 while True:
     try:
@@ -418,8 +415,8 @@ while True:
             service.display_memory_usage()
         elif cmd == "reset":
             service.reset()
-        elif cmd == "add_manual":
-            service.add_manual_room(int(arg))
+        elif cmd == "add_M":
+            service.add_M_room(int(arg))
         else:
             print("unknown command:", cmd)
 
