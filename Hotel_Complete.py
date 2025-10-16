@@ -206,7 +206,7 @@ class ManageFile:
                     line = line.strip()
                     if not line:
                         continue
-                    channel, customer_num, room_id, status = line.split("\t")
+                    status, channel, customer_num, room_id = line.split("\t")
                     if channel == "-":
                         rooms.append(Room(int(room_id), None, status))
                     else:
@@ -258,10 +258,6 @@ class HotelCommandHandler:
 
     def add_customers(self, arg: str):
         need, new_mapping = self.parse_add_command(arg)
-        total_new = sum(new_mapping.values())
-        if need != total_new:
-            print(f"Error: N ({need}) does not match the sum of X values ({total_new})")
-            return
         print(f"Before: {self.registry}")
         for room in self.rooms.inorder_traversal():
             room.status = 'OLD'
@@ -272,7 +268,7 @@ class HotelCommandHandler:
         # Assign new rooms for new customers
         temp_registry = CustomerRegistry()
         temp_registry.add_customers(new_mapping)
-        new_assigned = list(GodelAssigner.assign_rooms(temp_registry, need=total_new))
+        new_assigned = list(GodelAssigner.assign_rooms(temp_registry, need=need))
         for room in new_assigned:
             room.status = 'NEW'
             if not self.rooms.find(room.room_id):
@@ -281,11 +277,8 @@ class HotelCommandHandler:
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Assigned {len(new_assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
         
-    def add_M_room(self, room_id):
-        try:
-            num = self.registry.counts["M"]+1
-        except:
-            num = 1
+    def add_manual_room(self, room_id):
+        num = self.registry.counts.get("M", 0) + 1
         new_room = Room(room_id, Guest("M", num), 'NEW')
         if self.rooms.find(new_room.room_id):
             print(f"Room {new_room.room_id} already exists.")
@@ -294,22 +287,24 @@ class HotelCommandHandler:
             r.status = 'OLD'
         self.rooms.insert(new_room)
         print(f"Before: {self.registry}")
-        try:
-            val = self.registry.counts["M"]
-            self.registry.add_customers({"M":1})
-        except:
-            self.registry.add_customers({"M":1})
-        
+        self.registry.add_customers({"M":1})
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"After : {self.registry}")
-        print(f"Room {new_room.room_id} added Mly.")
+        print(f"Room {new_room.room_id} added manually.")
         return True
         
 
     def delete_room(self, room_id: int):
-        if not self.rooms.find(room_id):
+        room = self.rooms.find(room_id)
+        if not room:
             print(f"Room {room_id} not found.")
             return
+        if room.guest:
+            channel = room.guest.channel
+            if channel in self.registry.counts:
+                self.registry.counts[channel] -= 1
+                if self.registry.counts[channel] == 0:
+                    del self.registry.counts[channel]
         self.rooms.delete(room_id)
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Room {room_id} deleted.")
@@ -354,7 +349,9 @@ class HotelCommandHandler:
             return 0  # กัน Infinite recursion
         seen.add(obj_id)
         size = sys.getsizeof(obj)
-        if hasattr(obj, '__dict__'):
+        if isinstance(obj, dict):
+            size += sum(HotelCommandHandler.get_deep_size(k, seen) + HotelCommandHandler.get_deep_size(v, seen) for k, v in obj.items())
+        elif hasattr(obj, '__dict__'):
             # สำหรับ Object ที่มี __dict__
             size += sum(HotelCommandHandler.get_deep_size(v, seen) for v in obj.__dict__.values())
         elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes)):
@@ -415,8 +412,8 @@ while True:
             service.display_memory_usage()
         elif cmd == "reset":
             service.reset()
-        elif cmd == "add_M":
-            service.add_M_room(int(arg))
+        elif cmd == "add_manual":
+            service.add_manual_room(int(arg))
         else:
             print("unknown command:", cmd)
 
