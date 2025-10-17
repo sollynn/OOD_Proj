@@ -162,25 +162,6 @@ class CustomerRegistry:
         return f"{dict(sorted(self.counts.items()))}"
 
 
-# ---------- Room Assigner ----------
-class GodelAssigner:
-    @staticmethod
-    def assign_rooms(registry: CustomerRegistry, need: int):
-        channels = registry.get_sorted_channels()
-        if not channels:
-            return
-        assigned = 0
-
-        for channel in channels:
-            for customer_num in range(1, registry.counts[channel] + 1):
-                room_id = (2 ** int(channel)) * (3 ** customer_num)
-                guest = Guest(channel, customer_num)
-                yield Room(room_id, guest)
-                assigned += 1
-                if assigned >= need:
-                    return
-
-
 # ---------- File I/O ----------
 class ManageFile:
     def __init__(self, filename="hotel_data.txt"):
@@ -219,6 +200,7 @@ class ManageFile:
     def save_data(self, registry: CustomerRegistry, rooms: list[Room]):
         with open(self.filename, "w", encoding="utf-8") as f:
             channels_str = ", ".join(f"{ch}={cnt}" for ch, cnt in sorted(registry.counts.items()))
+            f.write(f"Channels: {channels_str}\n")
             f.write("Status\tChannel\tCustomerNum\tRoomID\n")
             for room in sorted(rooms, key=lambda x: x.room_id):
                 if room.guest:
@@ -233,7 +215,6 @@ class HotelCommandHandler:
         self.repo = repo or ManageFile()
         self.registry, existing_rooms = self.repo.load_data()
         self.rooms = AVLTree()
-        self.offsets = {}  # channel -> cumulative_offset
         for room in existing_rooms:
             self.rooms.insert(room)
 
@@ -269,16 +250,22 @@ class HotelCommandHandler:
         # Assign new rooms for new customers
         temp_registry = CustomerRegistry()
         temp_registry.add_customers(new_mapping)
-        new_assigned = list(GodelAssigner.assign_rooms(temp_registry, need=need))
+        new_assigned = []
+        for channel in temp_registry.get_sorted_channels():
+            for customer_num in range(1, temp_registry.counts[channel] + 1):
+                guest = Guest(channel, customer_num)
+                room = Room(0, guest)  # room_id will be calculated below
+                new_assigned.append(room)
         for room in new_assigned:
             room.status = 'NEW'
             channel = room.guest.channel
-            offset = self.offsets.get(channel, 0)
-            room.room_id = (2 ** int(channel)) * (3 ** (room.guest.customer_num + offset))
-            while self.rooms.find(room.room_id):
-                offset += 1
+            # Calculate offset based on existing rooms for this channel
+            offset = 0
+            while True:
                 room.room_id = (2 ** int(channel)) * (3 ** (room.guest.customer_num + offset))
-            self.offsets[channel] = offset  # Update cumulative offset for the channel
+                if not self.rooms.find(room.room_id):
+                    break
+                offset += 1
             self.rooms.insert(room)
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
