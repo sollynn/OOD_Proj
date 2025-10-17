@@ -233,6 +233,7 @@ class HotelCommandHandler:
         self.repo = repo or ManageFile()
         self.registry, existing_rooms = self.repo.load_data()
         self.rooms = AVLTree()
+        self.offsets = {}  # channel -> cumulative_offset
         for room in existing_rooms:
             self.rooms.insert(room)
 
@@ -271,10 +272,13 @@ class HotelCommandHandler:
         new_assigned = list(GodelAssigner.assign_rooms(temp_registry, need=need))
         for room in new_assigned:
             room.status = 'NEW'
-            offset = 0
+            channel = room.guest.channel
+            offset = self.offsets.get(channel, 0)
+            room.room_id = (2 ** int(channel)) * (3 ** (room.guest.customer_num + offset))
             while self.rooms.find(room.room_id):
                 offset += 1
-                room.room_id = (2 ** int(room.guest.channel)) * (3 ** (room.guest.customer_num + offset))
+                room.room_id = (2 ** int(channel)) * (3 ** (room.guest.customer_num + offset))
+            self.offsets[channel] = offset  # Update cumulative offset for the channel
             self.rooms.insert(room)
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
@@ -368,16 +372,20 @@ class HotelCommandHandler:
     def display_memory_usage(self):
         # Memory for CustomerRegistry (dict of counts)
         registry_size = self.get_deep_size(self.registry)
-    
+
+        # Memory for offsets (dict of channel -> offset)
+        offsets_size = self.get_deep_size(self.offsets)
+
         # Memory for AVLTree (traverse nodes)
         tree_size = 0
         for room in self.rooms.inorder_traversal():
             tree_size += self.get_deep_size(room)
-    
-        total_size = registry_size + tree_size
-    
+
+        total_size = registry_size + offsets_size + tree_size
+
         print(f"Memory Usage:")
         print(f"  CustomerRegistry (Dict): {registry_size} bytes")
+        print(f"  Offsets (Dict): {offsets_size} bytes")
         print(f"  AVLTree (Rooms): {tree_size} bytes")
         print(f"  Total Data: {total_size} bytes")
 
