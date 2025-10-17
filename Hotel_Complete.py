@@ -215,8 +215,13 @@ class HotelCommandHandler:
         self.repo = repo or ManageFile()
         self.registry, existing_rooms = self.repo.load_data()
         self.rooms = AVLTree()
+        self.offsets = {}  # channel -> cumulative_offset
         for room in existing_rooms:
             self.rooms.insert(room)
+            if room.guest:
+                channel = room.guest.channel
+                customer_num = room.guest.customer_num
+                self.offsets[channel] = max(self.offsets.get(channel, 0), customer_num)
 
     def parse_add_command(self, command: str):
         # รูปแบบ: "10 20 30" (counts for channels starting from next available)
@@ -254,19 +259,20 @@ class HotelCommandHandler:
         for channel in temp_registry.get_sorted_channels():
             for customer_num in range(1, temp_registry.counts[channel] + 1):
                 guest = Guest(channel, customer_num)
-                room = Room(0, guest)  # room_id will be calculated below
+                room = Room(0, guest)
                 new_assigned.append(room)
+                
         for room in new_assigned:
             room.status = 'NEW'
             channel = room.guest.channel
-            # Calculate offset based on existing rooms for this channel
-            offset = 0
+            offset = self.offsets.get(channel, 0)
             while True:
                 room.room_id = (2 ** int(channel)) * (3 ** (room.guest.customer_num + offset))
                 if not self.rooms.find(room.room_id):
                     break
                 offset += 1
             self.rooms.insert(room)
+            self.offsets[channel] = max(self.offsets.get(channel, 0), room.guest.customer_num + offset)
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Assigned {len(new_assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
@@ -329,8 +335,9 @@ class HotelCommandHandler:
         print(f"Saved to {self.repo.filename}")
 
     def reset(self):
-        self.registry = CustomerRegistry()  
-        self.rooms = AVLTree()  
+        self.registry = CustomerRegistry()
+        self.rooms = AVLTree()
+        self.offsets = {}
         self.repo.save_data(self.registry, [])
         print("All data wiped.")
 
