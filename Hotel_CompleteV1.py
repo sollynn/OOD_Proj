@@ -256,6 +256,7 @@ class HotelCommandHandler:
         temp_registry = CustomerRegistry()
         temp_registry.add_customers(new_mapping)
         new_assigned = []
+
         for channel in temp_registry.get_sorted_channels():
             for customer_num in range(1, temp_registry.counts[channel] + 1):
                 guest = Guest(channel, customer_num)
@@ -272,7 +273,7 @@ class HotelCommandHandler:
                     break
                 offset += 1
             self.rooms.insert(room)
-            self.offsets[channel] = max(self.offsets.get(channel, 0), room.guest.customer_num + offset)
+            self.offsets[channel] = offset
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Assigned {len(new_assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
@@ -388,7 +389,7 @@ class HotelCommandHandler:
 
 service = HotelCommandHandler()
 print("\n--- Hotel Command ---")
-print("add 10 20 30 ... | delete ID | find ID | show | show_file | memory | reset | exit\n")
+print("add 10 20 30 ... | add_manual ID | delete ID | find ID | show | show_file | memory | reset | exit\n")
 
 while True:
     try:
