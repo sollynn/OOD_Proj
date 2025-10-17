@@ -1,0 +1,4 @@
+"add_manual 1"  
+"add 1"  
+"show"  
+"exit" 

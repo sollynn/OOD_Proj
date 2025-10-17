@@ -165,7 +165,7 @@ class CustomerRegistry:
 # ---------- Room Assigner ----------
 class GodelAssigner:
     @staticmethod
-    def assign_rooms(registry: CustomerRegistry, need: int, start_room: int = 1):
+    def assign_rooms(registry: CustomerRegistry, need: int):
         channels = registry.get_sorted_channels()
         if not channels:
             return
@@ -271,8 +271,11 @@ class HotelCommandHandler:
         new_assigned = list(GodelAssigner.assign_rooms(temp_registry, need=need))
         for room in new_assigned:
             room.status = 'NEW'
-            if not self.rooms.find(room.room_id):
-                self.rooms.insert(room)
+            offset = 0
+            while self.rooms.find(room.room_id):
+                offset += 1
+                room.room_id = (2 ** int(room.guest.channel)) * (3 ** (room.guest.customer_num + offset))
+            self.rooms.insert(room)
 
         self.repo.save_data(self.registry, list(self.rooms.inorder_traversal()))
         print(f"Assigned {len(new_assigned)} / requested {need} (total guests={self.registry.get_total_customers()})")
